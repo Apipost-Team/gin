@@ -90,10 +90,9 @@ func (extension *JsonExtension) UpdateStructDescriptor(structDescriptor *jsonite
 	}
 }
 
-var jsonInstance jsoniter.API
+var jsonInstance jsoniter.API = jsoniter.Config{}.Froze()
 
 func init() {
-	jsonInstance = jsoniter.Config{}.Froze()
 	jsonInstance.RegisterExtension(&JsonExtension{})
 }
 
