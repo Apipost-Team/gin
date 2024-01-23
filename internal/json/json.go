@@ -26,7 +26,11 @@ func (e *HexStringEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 	}
 	// Convert int64 value to a 16-byte hexadecimal string
 	value := *(*int64)(ptr)
-	stream.WriteString(fmt.Sprintf("%016x", value))
+	if value == 0 {
+		stream.WriteString("0") //0值特殊处理
+	} else {
+		stream.WriteString(fmt.Sprintf("%016x", value))
+	}
 }
 
 func (e *HexStringEncoder) IsEmpty(ptr unsafe.Pointer) bool {
