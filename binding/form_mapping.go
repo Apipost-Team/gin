@@ -254,11 +254,21 @@ func setIntField(val string, bitSize int, field reflect.Value) error {
 	if val == "" {
 		val = "0"
 	}
-	intVal, err := strconv.ParseInt(val, 10, bitSize)
-	if err == nil {
-		field.SetInt(intVal)
+
+	if bitSize == 64 && len(val) == 16 {
+		//hack for hex, must 16位
+		intVal, err := strconv.ParseInt(val, 16, 64)
+		if err == nil {
+			field.SetInt(intVal)
+		}
+		return err
+	} else {
+		intVal, err := strconv.ParseInt(val, 10, bitSize)
+		if err == nil {
+			field.SetInt(intVal)
+		}
+		return err
 	}
-	return err
 }
 
 func setUintField(val string, bitSize int, field reflect.Value) error {
