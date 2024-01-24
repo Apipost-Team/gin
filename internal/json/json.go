@@ -8,7 +8,6 @@ package json
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -87,6 +86,41 @@ func (encoder *EmptyArrayEncoder) IsEmpty(ptr unsafe.Pointer) bool {
 	return encoder.encoder.IsEmpty(ptr)
 }
 
+// 空数组64位数组
+type EmptyArrayInt64Encoder struct {
+	encoder jsoniter.ValEncoder
+}
+
+func (encoder *EmptyArrayInt64Encoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
+	// If the pointer points to nil, write an empty object.
+	if *(*uintptr)(ptr) == 0 {
+		stream.WriteRaw("[]")
+		return
+	}
+
+	//循环数组
+	slice := (*[]int64)(ptr)
+	strSlice := make([]string, len(*slice))
+	for i, v := range *slice {
+		if v == 0 {
+			strSlice[i] = "0"
+		} else {
+			strSlice[i] = fmt.Sprintf("%016x", v)
+		}
+	}
+
+	jsonData, err := jsonInstance.Marshal(strSlice)
+	if err != nil {
+		encoder.encoder.Encode(ptr, stream)
+		return
+	}
+	stream.WriteRaw(string(jsonData))
+}
+
+func (encoder *EmptyArrayInt64Encoder) IsEmpty(ptr unsafe.Pointer) bool {
+	return encoder.encoder.IsEmpty(ptr)
+}
+
 // HexStringExtension 检查 struct 字段tags，为相应的 int64 字段应用 HexStringEncoder
 type ApipostExtension struct {
 	jsoniter.DummyExtension
@@ -96,13 +130,14 @@ type ApipostExtension struct {
 func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *jsoniter.StructDescriptor) {
 	for _, binding := range structDescriptor.Fields {
 		// 检查字段类型和 tag
-		log.Println(binding.Field.Type().Kind())
 		if binding.Field.Type().Kind() == reflect.Int64 {
 			//处理64位转换
-			if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") {
-				binding.Encoder = &HexStringEncoder{}
-				binding.Decoder = &HexStringEncoder{}
-			}
+			binding.Encoder = &HexStringEncoder{}
+			binding.Decoder = &HexStringEncoder{}
+			// if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") {
+			// 	binding.Encoder = &HexStringEncoder{}
+			// 	binding.Decoder = &HexStringEncoder{}
+			// }
 		} else if binding.Field.Type().Kind() == reflect.Ptr || binding.Field.Type().Kind() == reflect.Interface {
 			//处理空对象
 			if strings.Contains(binding.Field.Tag().Get("json"), "emptyobject") {
@@ -113,6 +148,10 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 			if strings.Contains(binding.Field.Tag().Get("json"), "emptyarray") {
 				binding.Encoder = &EmptyArrayEncoder{binding.Encoder}
 			}
+			if binding.Field.Type().Type1().Elem().String() == "int64" {
+				//强制转64数组
+				binding.Encoder = &EmptyArrayInt64Encoder{binding.Encoder}
+			}
 		}
 	}
 }
@@ -120,7 +159,7 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 var jsonInstance jsoniter.API = jsoniter.Config{}.Froze()
 
 func init() {
-	jsonInstance.RegisterExtension(&JsonExtension{})
+	jsonInstance.RegisterExtension(&ApipostExtension{})
 }
 
 var (
