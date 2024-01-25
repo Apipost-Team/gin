@@ -9,6 +9,7 @@ package json
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -40,10 +41,17 @@ func (e *HexStringEncoder) IsEmpty(ptr unsafe.Pointer) bool {
 func (codec *HexStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
 	str := iter.ReadString()
 	var i int64
+	var err error
 	if len(str) > 16 {
-		fmt.Sscanf(str, "%d", &i)
+		i, err = strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			i = 0
+		}
 	} else {
-		fmt.Sscanf(str, "%x", &i)
+		i, err = strconv.ParseInt(str, 16, 64)
+		if err != nil {
+			i = 0
+		}
 	}
 
 	*((*int64)(ptr)) = i
@@ -89,6 +97,7 @@ func (encoder *EmptyArrayEncoder) IsEmpty(ptr unsafe.Pointer) bool {
 // 空数组64位数组
 type EmptyArrayInt64Encoder struct {
 	encoder jsoniter.ValEncoder
+	decoder jsoniter.ValDecoder
 }
 
 func (encoder *EmptyArrayInt64Encoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
@@ -117,6 +126,38 @@ func (encoder *EmptyArrayInt64Encoder) Encode(ptr unsafe.Pointer, stream *jsonit
 	stream.WriteRaw(string(jsonData))
 }
 
+func (codec *EmptyArrayInt64Encoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+	//str := iter.ReadString()
+	valueList := []int64{}
+	for iter.ReadArray() {
+		val := iter.Read()
+		if iter.Error != nil {
+			break
+		}
+
+		if str, ok := val.(string); ok {
+			if len(str) > 16 {
+				intVal, err := strconv.ParseInt(str, 10, 64)
+				if err != nil {
+					continue
+				}
+				valueList = append(valueList, intVal)
+			} else {
+				intVal, err := strconv.ParseInt(str, 16, 64)
+				if err != nil {
+					continue
+				}
+				valueList = append(valueList, intVal)
+			}
+		}
+	}
+
+	// 将ptr解析为*[]int64类型的指针
+	ptrToSlice := (*[]int64)(ptr)
+	// 使用reflect包将ptr的内容替换为slice
+	reflect.ValueOf(ptrToSlice).Elem().Set(reflect.ValueOf(valueList))
+}
+
 func (encoder *EmptyArrayInt64Encoder) IsEmpty(ptr unsafe.Pointer) bool {
 	return encoder.encoder.IsEmpty(ptr)
 }
@@ -132,12 +173,10 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 		// 检查字段类型和 tag
 		if binding.Field.Type().Kind() == reflect.Int64 {
 			//处理64位转换
-			binding.Encoder = &HexStringEncoder{}
-			binding.Decoder = &HexStringEncoder{}
-			// if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") {
-			// 	binding.Encoder = &HexStringEncoder{}
-			// 	binding.Decoder = &HexStringEncoder{}
-			// }
+			if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") {
+				binding.Encoder = &HexStringEncoder{}
+				binding.Decoder = &HexStringEncoder{}
+			}
 		} else if binding.Field.Type().Kind() == reflect.Ptr || binding.Field.Type().Kind() == reflect.Interface {
 			//处理空对象
 			if strings.Contains(binding.Field.Tag().Get("json"), "emptyobject") {
@@ -145,12 +184,13 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 			}
 		} else if binding.Field.Type().Kind() == reflect.Slice || binding.Field.Type().Kind() == reflect.Array {
 			//处理空数组
-			if strings.Contains(binding.Field.Tag().Get("json"), "emptyarray") {
-				binding.Encoder = &EmptyArrayEncoder{binding.Encoder}
-			}
 			if binding.Field.Type().Type1().Elem().String() == "int64" {
 				//强制转64数组
-				binding.Encoder = &EmptyArrayInt64Encoder{binding.Encoder}
+				int64SliceEncode := &EmptyArrayInt64Encoder{binding.Encoder, binding.Decoder}
+				binding.Encoder = int64SliceEncode
+				binding.Decoder = int64SliceEncode
+			} else if strings.Contains(binding.Field.Tag().Get("json"), "emptyarray") {
+				binding.Encoder = &EmptyArrayEncoder{binding.Encoder}
 			}
 		}
 	}
