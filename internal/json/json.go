@@ -16,6 +16,15 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
+func containsAF(s string) bool {
+	for _, char := range s {
+		if char >= 'a' && char <= 'f' {
+			return true
+		}
+	}
+	return false
+}
+
 // HexStringEncoder 自定义编码器将 int64 类型编码为十六进制字符串或者把16进制转为int64
 type HexStringEncoder struct{}
 
@@ -42,13 +51,13 @@ func (codec *HexStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterato
 	str := iter.ReadString()
 	var i int64
 	var err error
-	if len(str) > 16 {
-		i, err = strconv.ParseInt(str, 10, 64)
+	if len(str) == 16 || containsAF(str) {
+		i, err = strconv.ParseInt(str, 16, 64)
 		if err != nil {
 			i = 0
 		}
 	} else {
-		i, err = strconv.ParseInt(str, 16, 64)
+		i, err = strconv.ParseInt(str, 10, 64)
 		if err != nil {
 			i = 0
 		}
@@ -136,14 +145,15 @@ func (codec *EmptyArrayInt64Encoder) Decode(ptr unsafe.Pointer, iter *jsoniter.I
 		}
 
 		if str, ok := val.(string); ok {
-			if len(str) > 16 {
-				intVal, err := strconv.ParseInt(str, 10, 64)
+			//含有a-f或者正好16位使用16进制解析
+			if len(str) == 16 || containsAF(str) {
+				intVal, err := strconv.ParseInt(str, 16, 64)
 				if err != nil {
 					continue
 				}
 				valueList = append(valueList, intVal)
 			} else {
-				intVal, err := strconv.ParseInt(str, 16, 64)
+				intVal, err := strconv.ParseInt(str, 10, 64)
 				if err != nil {
 					continue
 				}

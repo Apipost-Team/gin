@@ -250,12 +250,21 @@ func setWithProperType(val string, value reflect.Value, field reflect.StructFiel
 	return nil
 }
 
+func containsAF(s string) bool {
+	for _, char := range s {
+		if char >= 'a' && char <= 'f' {
+			return true
+		}
+	}
+	return false
+}
+
 func setIntField(val string, bitSize int, field reflect.Value) error {
 	if val == "" {
 		val = "0"
 	}
 
-	if bitSize == 64 && len(val) == 16 {
+	if bitSize == 64 && (len(val) == 16 || containsAF(val)) {
 		//hack for hex, must 16位
 		intVal, err := strconv.ParseInt(val, 16, 64)
 		if err == nil {
