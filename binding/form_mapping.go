@@ -264,7 +264,7 @@ func setIntField(val string, bitSize int, field reflect.Value) error {
 		val = "0"
 	}
 
-	if bitSize == 64 && (len(val) == 16 || containsAF(val)) {
+	if bitSize == 64 && (len(val) < 17 || containsAF(val)) {
 		//hack for hex, must 16位
 		intVal, err := strconv.ParseInt(val, 16, 64)
 		if err == nil {

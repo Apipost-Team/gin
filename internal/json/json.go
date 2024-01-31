@@ -39,7 +39,7 @@ func (e *HexStringEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 	if value == 0 {
 		stream.WriteString("0") //0值特殊处理
 	} else {
-		stream.WriteString(fmt.Sprintf("%016x", value))
+		stream.WriteString(fmt.Sprintf("%x", value))
 	}
 }
 
@@ -51,7 +51,7 @@ func (codec *HexStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterato
 	str := iter.ReadString()
 	var i int64
 	var err error
-	if len(str) == 16 || containsAF(str) {
+	if len(str) < 17 || containsAF(str) {
 		i, err = strconv.ParseInt(str, 16, 64)
 		if err != nil {
 			i = 0
@@ -123,7 +123,7 @@ func (encoder *EmptyArrayInt64Encoder) Encode(ptr unsafe.Pointer, stream *jsonit
 		if v == 0 {
 			strSlice[i] = "0"
 		} else {
-			strSlice[i] = fmt.Sprintf("%016x", v)
+			strSlice[i] = fmt.Sprintf("%x", v)
 		}
 	}
 
@@ -146,7 +146,7 @@ func (codec *EmptyArrayInt64Encoder) Decode(ptr unsafe.Pointer, iter *jsoniter.I
 
 		if str, ok := val.(string); ok {
 			//含有a-f或者正好16位使用16进制解析
-			if len(str) == 16 || containsAF(str) {
+			if len(str) < 17 || containsAF(str) {
 				intVal, err := strconv.ParseInt(str, 16, 64)
 				if err != nil {
 					continue
