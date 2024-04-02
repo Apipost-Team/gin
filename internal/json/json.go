@@ -48,22 +48,29 @@ func (e *HexStringEncoder) IsEmpty(ptr unsafe.Pointer) bool {
 }
 
 func (codec *HexStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
-	str := iter.ReadString()
-	var i int64
-	var err error
-	if len(str) < 17 || containsAF(str) {
-		i, err = strconv.ParseInt(str, 16, 64)
-		if err != nil {
-			i = 0
+	valueType := iter.WhatIsNext()
+	if valueType == jsoniter.StringValue {
+		str := iter.ReadString()
+		var i int64
+		var err error
+		if len(str) < 17 || containsAF(str) {
+			i, err = strconv.ParseInt(str, 16, 64)
+			if err != nil {
+				i = 0
+			}
+		} else {
+			i, err = strconv.ParseInt(str, 10, 64)
+			if err != nil {
+				i = 0
+			}
 		}
-	} else {
-		i, err = strconv.ParseInt(str, 10, 64)
-		if err != nil {
-			i = 0
-		}
-	}
 
-	*((*int64)(ptr)) = i
+		*((*int64)(ptr)) = i
+	} else if valueType == jsoniter.NumberValue {
+		*((*int64)(ptr)) = iter.ReadInt64()
+	} else {
+		*((*int64)(ptr)) = 0
+	}
 }
 
 // EmptyObjectEncoder 实现一个编码器，当字段值为nil时，写入空对象{}
