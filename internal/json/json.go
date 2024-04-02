@@ -179,6 +179,19 @@ func (encoder *EmptyArrayInt64Encoder) IsEmpty(ptr unsafe.Pointer) bool {
 	return encoder.encoder.IsEmpty(ptr)
 }
 
+type ToStringEncoder struct{}
+
+func (codec *ToStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+	valueType := iter.WhatIsNext()
+	if valueType == jsoniter.StringValue {
+		str := iter.ReadString()
+		*((*string)(ptr)) = str
+	} else {
+		valueAsString := iter.ReadAny().ToString()
+		*((*string)(ptr)) = valueAsString
+	}
+}
+
 // HexStringExtension 检查 struct 字段tags，为相应的 int64 字段应用 HexStringEncoder
 type ApipostExtension struct {
 	jsoniter.DummyExtension
@@ -208,6 +221,10 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 				binding.Decoder = int64SliceEncode
 			} else if strings.Contains(binding.Field.Tag().Get("json"), "emptyarray") {
 				binding.Encoder = &EmptyArrayEncoder{binding.Encoder}
+			}
+		} else if binding.Field.Type().Kind() == reflect.String {
+			if strings.Contains(binding.Field.Tag().Get("json"), "tostring") {
+				binding.Decoder = &ToStringEncoder{}
 			}
 		}
 	}
