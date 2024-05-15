@@ -192,6 +192,50 @@ func (codec *ToStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator
 	}
 }
 
+type ToBoolEncoder struct {
+	decoder    jsoniter.ValDecoder
+	DefaultVal bool
+}
+
+func (codec *ToBoolEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+	valueType := iter.WhatIsNext()
+	fmt.Println(valueType)
+	if valueType == jsoniter.BoolValue {
+		codec.decoder.Decode(ptr, iter)
+	} else if valueType == jsoniter.NumberValue {
+		i := iter.ReadInt()
+		var myBool bool
+		if i > 0 {
+			myBool = true
+		} else {
+			myBool = false
+		}
+		*((*bool)(ptr)) = myBool
+	} else if valueType == jsoniter.StringValue {
+		str := strings.ToLower(iter.ReadString())
+		var myBool bool
+		if str == "true" || str == "1" {
+			myBool = true
+		} else if str == "false" || str == "0" || str == "-1" {
+			myBool = false
+		} else {
+			myBool = codec.DefaultVal
+		}
+		*((*bool)(ptr)) = myBool
+	} else {
+		str := strings.ToLower(iter.ReadAny().ToString())
+		var myBool bool
+		if str == "true" || str == "1" {
+			myBool = true
+		} else if str == "false" || str == "0" || str == "-1" {
+			myBool = false
+		} else {
+			myBool = codec.DefaultVal
+		}
+		*((*bool)(ptr)) = myBool
+	}
+}
+
 // HexStringExtension 检查 struct 字段tags，为相应的 int64 字段应用 HexStringEncoder
 type ApipostExtension struct {
 	jsoniter.DummyExtension
@@ -225,6 +269,13 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 		} else if binding.Field.Type().Kind() == reflect.String {
 			if strings.Contains(binding.Field.Tag().Get("json"), "tostring") {
 				binding.Decoder = &ToStringEncoder{}
+			}
+		} else if binding.Field.Type().Kind() == reflect.Bool {
+			tagStr := binding.Field.Tag().Get("json")
+			if strings.Contains(tagStr, "tofalse") {
+				binding.Decoder = &ToBoolEncoder{binding.Decoder, false}
+			} else if strings.Contains(tagStr, "totrue") {
+				binding.Decoder = &ToBoolEncoder{binding.Decoder, true}
 			}
 		}
 	}
