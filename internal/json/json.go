@@ -199,7 +199,6 @@ type ToBoolEncoder struct {
 
 func (codec *ToBoolEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
 	valueType := iter.WhatIsNext()
-	fmt.Println(valueType)
 	if valueType == jsoniter.BoolValue {
 		codec.decoder.Decode(ptr, iter)
 	} else if valueType == jsoniter.NumberValue {
