@@ -26,7 +26,9 @@ func containsAF(s string) bool {
 }
 
 // HexStringEncoder 自定义编码器将 int64 类型编码为十六进制字符串或者把16进制转为int64
-type HexStringEncoder struct{}
+type HexStringEncoder struct{
+	IsInt64Pointer bool //源数据为 *int64
+}
 
 // Encode 实现 jsoniter.ValEncoder 接口
 func (e *HexStringEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
@@ -34,6 +36,18 @@ func (e *HexStringEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 		stream.WriteNil()
 		return
 	}
+
+	// Convert *int64 value to a 16-byte hexadecimal string
+	if e.IsInt64Pointer { 
+		pp := (**int64)(ptr)
+		if *pp == nil {
+			stream.WriteNil()
+			return
+		}
+		stream.WriteString(fmt.Sprintf("%x", **pp))
+		return
+	}
+	
 	// Convert int64 value to a 16-byte hexadecimal string
 	value := *(*int64)(ptr)
 	if value == 0 {
@@ -252,8 +266,7 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 			}
 		} else if binding.Field.Type().Kind() == reflect.Ptr || binding.Field.Type().Kind() == reflect.Interface {
 			if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") && binding.Field.Type().Type1().Elem().Kind() == reflect.Int64 { //处理*int64位转换
-				binding.Encoder = &HexStringEncoder{}
-				binding.Decoder = &HexStringEncoder{}
+				binding.Encoder = &HexStringEncoder{IsInt64Pointer: true}
 			} else if strings.Contains(binding.Field.Tag().Get("json"), "emptyobject") { //处理空对象
 				binding.Encoder = &EmptyObjectEncoder{binding.Encoder}
 			}
