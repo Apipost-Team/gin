@@ -251,8 +251,10 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 				binding.Decoder = &HexStringEncoder{}
 			}
 		} else if binding.Field.Type().Kind() == reflect.Ptr || binding.Field.Type().Kind() == reflect.Interface {
-			//处理空对象
-			if strings.Contains(binding.Field.Tag().Get("json"), "emptyobject") {
+			if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") && binding.Field.Type().Type1().Elem().Kind() == reflect.Int64 { //处理*int64位转换
+				binding.Encoder = &HexStringEncoder{}
+				binding.Decoder = &HexStringEncoder{}
+			} else if strings.Contains(binding.Field.Tag().Get("json"), "emptyobject") { //处理空对象
 				binding.Encoder = &EmptyObjectEncoder{binding.Encoder}
 			}
 		} else if binding.Field.Type().Kind() == reflect.Slice || binding.Field.Type().Kind() == reflect.Array {
