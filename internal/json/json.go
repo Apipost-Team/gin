@@ -63,9 +63,9 @@ func (e *HexStringEncoder) IsEmpty(ptr unsafe.Pointer) bool {
 
 func (codec *HexStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
 	valueType := iter.WhatIsNext()
+	var i int64
 	if valueType == jsoniter.StringValue {
 		str := iter.ReadString()
-		var i int64
 		var err error
 		if len(str) < 17 || containsAF(str) {
 			i, err = strconv.ParseInt(str, 16, 64)
@@ -78,12 +78,19 @@ func (codec *HexStringEncoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterato
 				i = 0
 			}
 		}
-
-		*((*int64)(ptr)) = i
 	} else if valueType == jsoniter.NumberValue {
-		*((*int64)(ptr)) = iter.ReadInt64()
+		i = iter.ReadInt64()
+	}
+	
+	// 处理 *int64 指针类型
+	if codec.IsInt64Pointer {
+		// 为指针分配内存并赋值
+		intValue := new(int64)
+		*intValue = i
+		*(*unsafe.Pointer)(ptr) = unsafe.Pointer(intValue)
 	} else {
-		*((*int64)(ptr)) = 0
+		// 处理普通 int64 类型
+		*((*int64)(ptr)) = i
 	}
 }
 
@@ -267,6 +274,7 @@ func (extension *ApipostExtension) UpdateStructDescriptor(structDescriptor *json
 		} else if binding.Field.Type().Kind() == reflect.Ptr || binding.Field.Type().Kind() == reflect.Interface {
 			if strings.Contains(binding.Field.Tag().Get("json"), "hexstring") && binding.Field.Type().Type1().Elem().Kind() == reflect.Int64 { //处理*int64位转换
 				binding.Encoder = &HexStringEncoder{IsInt64Pointer: true}
+				binding.Decoder = &HexStringEncoder{IsInt64Pointer: true}
 			} else if strings.Contains(binding.Field.Tag().Get("json"), "emptyobject") { //处理空对象
 				binding.Encoder = &EmptyObjectEncoder{binding.Encoder}
 			}
